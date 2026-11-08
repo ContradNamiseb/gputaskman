@@ -2,7 +2,7 @@
 
 **An `htop` for what's inside your GPU, not just how full it is.**
 
-Windows + NVIDIA/AMD, with Linux and WSL support (NVIDIA everywhere, AMD on native Linux; see
+Windows + NVIDIA/AMD (Intel experimental), with Linux and WSL support (NVIDIA everywhere, AMD on native Linux; see
 [Linux and WSL](#linux-and-wsl)) and macOS on Apple Silicon (see [macOS](#macos-apple-silicon)). A terminal UI
 that connects per-process GPU memory and engine activity with loaded runtimes, model files, and
 LLM buffer breakdowns.
@@ -463,6 +463,21 @@ bundled in the portable build. The RX 9060 XT HIP workload and ADL telemetry hav
 this machine; AMD SMI telemetry and Vulkan workloads remain unvalidated.
 A loaded DLL does not prove GPU execution.
 
+**Intel GPUs on Windows (experimental, not validated on hardware).** Intel adapters are listed and
+selectable, and use the same Windows GPU process counters as every other vendor: per-process memory,
+spill and engine load. SYCL (oneAPI DPC++, `sycl*.dll`), Level Zero (`ze_loader.dll`,
+`ze_intel_gpu*.dll`), OpenVINO (`openvino*.dll`) and PyTorch XPU (`torch_xpu*.dll`) are recognized
+as runtime evidence; SYCL and Level Zero processes are classified as `compute`, OpenVINO as `AI`.
+There are no Intel device readings yet, so utilization, clocks, temperature and power show `n/a`
+rather than a guess; Level Zero Sysman is the likely source and is not implemented.
+
+An Intel **integrated** GPU has only a small dedicated carve-out (typically 128 MB); the memory it
+actually uses is shared system RAM. On Windows, an Intel adapter reporting under 1 GB of dedicated
+memory is treated as integrated: its shared memory is not shown as spill, and the LLM breakdown counts
+it as memory the model holds, as on an AMD APU under Linux. This is **inferred** from the vendor and
+the dedicated size (DXGI has no "integrated" flag) and is `shared_is_spill: false` in `--json`. The
+VRAM bar still shows the dedicated carve-out only, so on an iGPU read the per-process shared column.
+
 Unavailable utilization, temperature, power, clock and PCIe readings are displayed as `N/A` in
 text and the TUI and as `null` in JSON. For example, a missing NVML power limit means that the
 driver did not expose that reading; it does not by itself indicate a hardware fault.
@@ -810,6 +825,7 @@ downloads are bundled in this repository.
 - Explicit provenance and availability for every counter and estimate.
 - Reliable multi-GPU matching and per-device model placement.
 - Bare-metal Linux validation on NVIDIA hardware; Intel GPUs (`i915`/`xe`) through the same DRM fdinfo path as AMD.
+- Intel on Windows: hardware validation, and device readings (utilization, clocks, power) through Level Zero Sysman.
 - macOS: a portable build, Ollama/llama.cpp/MLX validation, and compressed GPU memory (footprint's
   `swapped`) as the paged column.
 - WSL: per-process GPU load for Linux rows, and Ollama's systemd journal as a log source.

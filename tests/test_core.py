@@ -198,6 +198,17 @@ class DeviceSelectionTests(unittest.TestCase):
             self.assertIn("HIP", _match_runtimes({dll}))
         self.assertNotIn("HIP", _match_runtimes({"amd_comgr_2.dll"}))
 
+    def test_intel_compute_runtimes_are_evidence(self):
+        self.assertEqual(_match_runtimes({"sycl8.dll", "ze_loader.dll", "ze_intel_gpu64.dll"}), ["SYCL", "Level Zero"])
+        self.assertEqual(_match_runtimes({"sycl.dll"}), ["SYCL"])
+        self.assertEqual(_match_runtimes({"openvino.dll", "openvino_intel_gpu_plugin.dll"}), ["OpenVINO"])
+        self.assertEqual(_match_runtimes({"torch_xpu.dll"}), ["PyTorch"])
+        # llama.cpp's SYCL backend is ggml; only the SYCL runtime library itself is SYCL evidence.
+        self.assertEqual(_match_runtimes({"ggml-sycl.dll"}), ["ggml"])
+        self.assertEqual(classify(ProcDetail(1, "lc0.exe", runtimes=["SYCL", "Level Zero"]), {}), "compute")
+        self.assertEqual(classify(ProcDetail(2, "worker.exe", runtimes=["Level Zero"]), {}), "compute")
+        self.assertEqual(classify(ProcDetail(3, "ovms.exe", runtimes=["OpenVINO"]), {}), "AI")
+
     def test_adapter_indices_do_not_clamp_to_another_gpu(self):
         gpu = Adapter(1, "NVIDIA GPU", 0x10DE, 16 * GiB, 0, False)
         software = Adapter(2, "Software", 0x1414, 0, 0, True)
@@ -266,6 +277,34 @@ class MemoryTests(unittest.TestCase):
         self.assertEqual(s.procs, [])
         self.assertTrue(s.counter_adapter_matched)
         self.assertEqual(s.counter_status, "")
+
+    def _wddm_snapshot(self, adapter: Adapter, backend: str = "wddm") -> Snapshot:
+        c = Collector.__new__(Collector)
+        c.adapter = adapter
+        c.adapters = [adapter]
+        c.gpu_index, c.scan_budget, c.host, c.host_status = 0, None, None, ""
+        c.nvml = Mock(ok=False)
+        c.counters = Mock(outside={})
+        c.counters.sample.return_value = ({1: {}}, {1: AdapterGpu(dedicated=64 * MiB, shared=6 * GiB)})
+        c.inspector, c.prober = Mock(), Mock()
+        with patch("gputaskman.collector.BACKEND", backend):
+            return c.sample()
+
+    def test_intel_integrated_shared_memory_is_not_spill_on_windows(self):
+        igpu = Adapter(1, "Intel(R) Arc(TM) Graphics", 0x8086, 128 * MiB, 16 * GiB, False)
+        s = self._wddm_snapshot(igpu)
+        self.assertFalse(s.shared_is_spill)
+        self.assertFalse(to_dict(s)["shared_is_spill"])
+        self.assertIsNone(s.nv)  # no Intel device readings: n/a, not zeros
+        self.assertEqual(s.shared_used, 6 * GiB)
+
+    def test_discrete_and_other_vendor_shared_memory_stays_spill(self):
+        arc = Adapter(1, "Intel(R) Arc(TM) A770 Graphics", 0x8086, 16 * GiB, 16 * GiB, False)
+        self.assertTrue(self._wddm_snapshot(arc).shared_is_spill)
+        small_nvidia = Adapter(1, "NVIDIA GPU", 0x10DE, 128 * MiB, 16 * GiB, False)
+        self.assertTrue(self._wddm_snapshot(small_nvidia).shared_is_spill)
+        igpu = Adapter(1, "Intel(R) Arc(TM) Graphics", 0x8086, 128 * MiB, 16 * GiB, False)
+        self.assertTrue(self._wddm_snapshot(igpu, backend="nvml").shared_is_spill)  # a Windows-only inference
 
     def test_windows_missing_adapter_counter_explains_unavailable_memory(self):
         c = Collector.__new__(Collector)

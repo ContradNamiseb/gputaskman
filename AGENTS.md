@@ -136,5 +136,5 @@ workflow `release.yml`, and environment `pypi`. Only the isolated publishing job
 Validated live: Windows 11 with an RTX 4080 SUPER (WDDM, plus WSL2), a Linux container with an
 RTX 3060 Ti, macOS 26.3.1 on an M4 Mac mini (Metal; own-user processes, not run as root), and
 bare-metal Linux with an amdgpu Radeon RX 9070-series card plus a Radeon 610M (DRM path).
-Not yet validated on hardware: bare-metal Linux with NVIDIA, multi-GPU systems, and GPU-backed WinML on
-Copilot+ PCs. Planned work is listed under **Next** in the README.
+Not yet validated on hardware: bare-metal Linux with NVIDIA, multi-GPU systems, GPU-backed WinML on
+Copilot+ PCs, and Intel GPUs on Windows (integrated-memory handling and SYCL/Level Zero/OpenVINO detection). Planned work is listed under **Next** in the README.

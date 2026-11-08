@@ -11,7 +11,7 @@ import psutil
 
 from .amdsmi import AmdSmi, _bdf
 from .adl import Adl
-from .dxgi import VENDOR_NVIDIA, Adapter
+from .dxgi import VENDOR_NVIDIA, Adapter, integrated_intel
 from .handy import HandyEvidence, inspect_handy
 from .llm import LlmView, ServerProber, build_view, gb, ollama_log_path
 from .nvml import Nvml, NvDevice
@@ -117,7 +117,8 @@ class Snapshot:
     process_status: str = ""  # amdgpu only: what the DRM process scan couldn't cover; empty when it saw everything
     host_status: str = ""  # WSL only: Windows host counters via interop -- ok | starting | off (...) | ...
     wsl_split: str = ""  # WSL only: why Linux rows have no (inferred) VRAM, when they don't
-    # False on an APU (amdgpu iGPU): its GTT is ordinary GPU memory, not spill from a full VRAM.
+    # False on an integrated GPU (an amdgpu APU on Linux, an Intel iGPU on Windows): its shared memory is ordinary
+    # GPU memory, not spill from a full VRAM.
     shared_is_spill: bool = True
     counter_status: str = ""  # Windows counter availability or adapter matching problem
     counter_adapter_matched: bool | None = None  # Windows PDH LUID matched the selected DXGI adapter
@@ -263,7 +264,8 @@ class Collector:
             cuda=self.nvml.cuda_version if nv and nv.source == "NVML" else "", vram_total=total,
             vram_used=int(a.dedicated) if a and a.dedicated is not None else None,
             shared_used=int(a.shared) if a and a.shared is not None else None, backend=self.backend,
-            shared_is_spill=not (self.drm_card is not None and self.drm_card.integrated),
+            shared_is_spill=not ((self.drm_card is not None and self.drm_card.integrated)
+                                 or (BACKEND == "wddm" and integrated_intel(self.adapter))),
         )
 
         snap.host_status = self.host_status

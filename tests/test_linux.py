@@ -102,6 +102,11 @@ class LinuxLibraryTests(unittest.TestCase):
                                        "libvulkan.so.1", "libtorch_cuda.so", "libnvidia-encode.so.1")}
         self.assertEqual(_match_runtimes(libs), ["llama.cpp", "ggml", "PyTorch", "CUDA", "Vulkan", "NVENC"])
 
+    def test_linux_intel_runtimes_are_detected(self):
+        libs = {_lib_name(n) for n in ("libsycl.so.8", "libze_loader.so.1", "libze_intel_gpu.so.1",
+                                       "libopenvino.so.2520", "libtorch_xpu.so")}
+        self.assertEqual(_match_runtimes(libs), ["PyTorch", "OpenVINO", "SYCL", "Level Zero"])
+
     def test_linux_compositors_and_browsers(self):
         self.assertEqual(classify(ProcDetail(900, "Xorg"), {}), "compositor")
         self.assertEqual(classify(ProcDetail(901, "gnome-shell"), {}), "compositor")

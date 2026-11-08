@@ -20,12 +20,17 @@ RUNTIMES: list[tuple[str, tuple[str, ...]]] = [
     ("llama.cpp", ("llama.dll", "libllama*.dll", "llama-*.dll", "llm_engine*", "libllama*.so", "libllama*.dylib")),
     ("whisper.cpp", ("whisper*.dll", "libwhisper*.so", "libwhisper*.dylib")),
     ("ggml", ("ggml*.dll", "libggml*.so", "libggml*.dylib")),
-    ("PyTorch", ("torch_cuda*.dll", "torch_cpu.dll", "libtorch_cuda*.so", "libtorch_cpu.so", "libtorch_cpu.dylib")),
+    ("PyTorch", ("torch_cuda*.dll", "torch_xpu*.dll", "torch_cpu.dll", "libtorch_cuda*.so", "libtorch_xpu*.so",
+                 "libtorch_cpu.so", "libtorch_cpu.dylib")),
     ("MLX", ("libmlx*.dylib",)),
     ("TensorRT", ("nvinfer*.dll", "libnvinfer*.so")),
+    ("OpenVINO", ("openvino*.dll", "libopenvino*.so")),
     ("ONNX RT", ("onnxruntime*.dll", "libonnxruntime*.so", "libonnxruntime*.dylib")),
     ("DirectML", ("directml.dll",)),
     ("HIP", ("amdhip64.dll", "amdhip64_*.dll", "libamdhip64.so")),
+    # Intel's compute stack: SYCL (oneAPI DPC++) runs on Level Zero, which programs can also use directly.
+    ("SYCL", ("sycl.dll", "sycl[0-9]*.dll", "libsycl.so")),
+    ("Level Zero", ("ze_loader.dll", "ze_intel_gpu*.dll", "libze_loader.so", "libze_intel_gpu.so")),
     ("cuDNN", ("cudnn*.dll", "libcudnn*.so")),
     ("CUDA", ("nvcuda.dll", "nvcuda64.dll", "cudart64_*.dll", "cublas64_*.dll",
               "libcuda.so", "libcudart.so", "libcublas.so")),
@@ -38,7 +43,9 @@ RUNTIMES: list[tuple[str, tuple[str, ...]]] = [
     ("NVDEC", ("nvcuvid.dll", "nvcuvid64.dll", "libnvcuvid.so")),
 ]
 _SO = re.compile(r"^(.+\.so)(?:\.[0-9][0-9a-z.]*)?$")
-AI_RUNTIMES = {"llama.cpp", "whisper.cpp", "ggml", "PyTorch", "MLX", "TensorRT", "ONNX RT", "DirectML", "cuDNN"}
+AI_RUNTIMES = {"llama.cpp", "whisper.cpp", "ggml", "PyTorch", "MLX", "TensorRT", "OpenVINO", "ONNX RT", "DirectML",
+               "cuDNN"}
+COMPUTE_RUNTIMES = ("CUDA", "HIP", "SYCL", "Level Zero")
 _RUNTIME_RX = [(tag, re.compile("|".join(fnmatch.translate(p) for p in pats))) for tag, pats in RUNTIMES]
 MODEL_EXTS = {".gguf", ".ggml", ".safetensors", ".onnx", ".pt", ".pth", ".bin", ".engine", ".plan", ".tflite", ".ckpt"}
 AMBIGUOUS_EXTS = {".bin", ".pt", ".pth", ".ckpt"}  # also used for caches/tiles, so require size or a model store
@@ -445,7 +452,7 @@ def classify(d: ProcDetail, engines: dict[str, float]) -> str:
         return "browser"
     if video or "NVENC" in d.runtimes:
         return "video"
-    if "CUDA" in d.runtimes or "HIP" in d.runtimes:
+    if any(r in d.runtimes for r in COMPUTE_RUNTIMES):
         return "compute"
     if ("D3D12" in d.runtimes or "Vulkan" in d.runtimes) and engines.get("3d", 0) > 10:
         return "3D/game"

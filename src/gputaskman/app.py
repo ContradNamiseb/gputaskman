@@ -65,9 +65,9 @@ This display-only choice applies to all GPUs and resets to full when the app res
 
 | Layer | Source | Works for |
 |---|---|---|
-| **Device** telemetry | NVML, AMD ADL, or optional AMD SMI; amdgpu sysfs on Linux | availability varies by GPU and driver |
+| **Device** telemetry | NVML, AMD ADL, or optional AMD SMI; amdgpu sysfs on Linux; none yet for Intel | availability varies by GPU and driver |
 | **Per-process** VRAM, spill to RAM, per-engine load | Windows WDDM counters (dxgkrnl); DRM fdinfo for amdgpu on Linux | workloads visible to WDDM or DRM |
-| **Which runtime** (CUDA, HIP, Vulkan, D3D12, ggml, ONNX, PyTorch...) | DLLs mapped in the process | everything |
+| **Which runtime** (CUDA, HIP, SYCL, Level Zero, Vulkan, D3D12, ggml, ONNX, OpenVINO, PyTorch...) | DLLs mapped in the process | everything |
 | **Which model file** | memory-mapped files + command line | llama.cpp, stable-diffusion.cpp, LM Studio, Ollama |
 | **Model name & kind** (LLM, decision, embedding, speech) | GGUF header, Ollama/LM Studio/Hugging Face stores, local server APIs | GGUF family |
 | **Weights / KV cache / compute** split | GGUF header math, llama.cpp/Ollama logs, local server APIs | GGUF/llama.cpp family |
